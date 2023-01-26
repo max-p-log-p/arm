@@ -1,3 +1,5 @@
+Building requires GCC version 8.3.0
+
 Lab 3-1
 - Modify the first instruction of `user_prog()` to be `bx lr`, which causes it to return immediately
 
