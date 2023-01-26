@@ -44,42 +44,28 @@ static int32_t *funcEnd;
 
 void
 handleBlCallout(SaveRegs *regs) {
-	// puts("\nhandleBlCallout");
-	// printf("origAddr: %p, origInstr: %p\n", (void *)origAddr, (void *)origInstr);
-	// printf("lr: %x, pc: %p\n", regs->lr, (void *)regs->retPC);
-	// printf("r[0]: %x\n", regs->r[0]);
-
 	/* unpatch instruction */
 	*origAddr = origInstr;
 	__clear_cache(origAddr, origAddr + 1);
 	/* emulate branch */
 	regs->lr = (uint32_t)origAddr + 4;
-	// printf("lr: %x\n", regs->lr);
 	regs->retPC = origAddr + ((origInstr << 8) >> 8) + 2;
-	// printf("retPC: %p\n", (void *)regs->retPC);
 	patchNextCtrlInstr(regs->retPC);
 }
 
 void
 handleBCallout(SaveRegs *regs) {
-	// puts("\nhandleBCallout");
-	// printf("r[0]: %x\n", regs->r[0]);
-
 	/* unpatch instruction */
 	*origAddr = origInstr;
 	__clear_cache(origAddr, origAddr + 1);
 
 	/* emulate branch */
 	regs->retPC = origAddr + ((origInstr << 8) >> 8) + 2;
-	// printf("retPC: %p\n", (void *)regs->retPC);
 	patchNextCtrlInstr(regs->retPC);
 }
 
 void
 handleBxCallout(SaveRegs *regs) {
-	// puts("\nhandleBxCallout");
-	// printf("r[0]: %x\n", regs->r[0]);
-
 	/* unpatch instruction */
 	*origAddr = origInstr;
 	__clear_cache(origAddr, origAddr + 1);
@@ -98,8 +84,6 @@ handleBxCallout(SaveRegs *regs) {
 		break;
 	}
 
-	// printf("lr: %x\n", regs->lr);
-
 	// Check if last return
 	if (regs->retPC >= (int32_t *)&user_prog && regs->retPC <= funcEnd)
 		patchNextCtrlInstr(regs->retPC);
@@ -111,9 +95,6 @@ void
 handleBxccCallout(SaveRegs *regs) {
 	uint8_t regNum;
 
-	// puts("\nhandleBxccCallout");
-	// printf("r[0]: %x\n", regs->r[0]);
-
 	/* unpatch instruction */
 	*origAddr = origInstr;
 	__clear_cache(origAddr, origAddr + 1);
@@ -124,7 +105,6 @@ handleBxccCallout(SaveRegs *regs) {
 		/* eq */
 		/* Z = 1 */
 		if ((regs->CPSR & 0xf0000000) >> 28 & CPSR_Z) {
-			// puts("Branch");
 			regNum = origInstr & 0xf;
 			switch (regNum) {
 			case '\xd':
@@ -141,7 +121,6 @@ handleBxccCallout(SaveRegs *regs) {
 				break;
 			}
 		} else {
-			// puts("No branch");
 			regs->retPC = origAddr + 1;
 			patchNextCtrlInstr(regs->retPC);
 			return;
@@ -151,33 +130,23 @@ handleBxccCallout(SaveRegs *regs) {
 		NOT_IMPLEMENTED();
 		break;
 	}
-
-	// printf("pc: %p\n", (void *)regs->retPC);
 }
 
 /* bgt, bne */
 void
 handleBccCallout(SaveRegs *regs) {
-	// puts("\nhandleBccCallout");
-	// printf("origAddr: %p, origInstr: %p\n", (void *)origAddr, (void *)origInstr);
-	// printf("lr: %x\n", regs->lr);
-	// printf("r[0]: %x\n", regs->r[0]);
-
 	/* unpatch instruction */
 	*origAddr = origInstr;
 	__clear_cache(origAddr, origAddr + 1);
 
 	/* emulate branch */
 	/* N Z C V */
-	// printf("CPSR: %x\n", regs->CPSR);
 	switch ((origInstr & 0xf0000000) >> 28) {
 	case ARM_COND_NE:
 		/* bne */
 		/* Z = 0 */
 		if (((regs->CPSR & 0xf0000000) >> 28 & CPSR_Z) == 0) {
-			// puts("Branch");
 			regs->retPC = origAddr + ((origInstr << 8) >> 8) + 2;
-			// printf("retPC: %p\n", (void *)regs->retPC);
 			patchNextCtrlInstr(regs->retPC);
 			return;
 		}
@@ -190,9 +159,7 @@ handleBccCallout(SaveRegs *regs) {
 		case '\x2':
 		case '\x9':
 		case '\xb':
-			// puts("Branch");
 			regs->retPC = origAddr + ((origInstr << 8) >> 8) + 2;
-			// printf("retPC: %p\n", (void *)regs->retPC);
 			patchNextCtrlInstr(regs->retPC);
 			return;
 		default:
@@ -202,39 +169,28 @@ handleBccCallout(SaveRegs *regs) {
 		break;
 	}
 
-	// puts("No branch");
 	regs->retPC = origAddr + 1;
-	// printf("retPC: %p\n", (void *)regs->retPC);
 	patchNextCtrlInstr(regs->retPC);
 }
 
 void
 handleCondCallout(SaveRegs *regs) {
-	// puts("\nhandleCondCallout");
-	// printf("origAddr: %p, origInstr: %p\n", (void *)origAddr, (void *)origInstr);
-	// printf("r[0]: %x\n", regs->r[0]);
-
 	/* unpatch instruction */
 	*origAddr = origInstr;
 	__clear_cache(origAddr, origAddr + 1);
 
 	/* emulate instruction */
 	/* N Z C V */
-	// printf("CPSR: %x\n", regs->CPSR);
 	switch ((origInstr & 0xf0000000) >> 28) {
 	case ARM_COND_EQ:
 		if ((regs->CPSR & 0xf0000000) >> 28 & CPSR_Z) {
 			regs->retPC = origAddr;
-			// puts("Executed");
 			patchNextCtrlInstr(regs->retPC + 1);
 		} else {
 			regs->retPC = origAddr + 1;
-			// puts("Not executed");
 			patchNextCtrlInstr(regs->retPC);
 		}
 	}
-
-	// printf("retPC: %p\n", (void *)regs->retPC);
 }
 
 /*
@@ -242,10 +198,6 @@ handleCondCallout(SaveRegs *regs) {
  */
 void
 handlePopCall(SaveRegs *regs) {
-	// puts("\nhandlePopCall");
-	// printf("origAddr: %p, origInstr: %p\n", (void *)origAddr, (void *)origInstr);
-	// printf("r[0]: %x\n", regs->r[0]);
-
 	/* shift right needs to be logical */
 	uint16_t reg_list;
 	int8_t regNum;
@@ -262,7 +214,6 @@ handlePopCall(SaveRegs *regs) {
 			if ((reg_list & 1) == 0)
 				continue;
 
-			// printf("sp: %p, %x\n", (void *)regs->sp, *(int32_t *)regs->sp);
 			switch (regNum) {
 			case '\xd':
 				UNPREDICTABLE();
@@ -286,9 +237,6 @@ handlePopCall(SaveRegs *regs) {
 		regs->sp += 4;
 	} else
 		NOT_IMPLEMENTED();
-
-	// printf("retPC: %p\n", (void *)regs->retPC);
-	// printf("r[0]: %x\n", regs->r[0]);
 
 	// Check if last return
 	if (regs->retPC >= (int32_t *)&user_prog && regs->retPC <= funcEnd)
@@ -327,9 +275,6 @@ patchInstr(int32_t *addr)
 	int32_t *call_target, offset;
 	int16_t *i16;
 
-	// printf("patching addr: %p\n", (void *)addr);
-	// printf("origInstr: %x\n", *addr);
-
 	origInstr = *addr;
 	origAddr = addr;
 
@@ -355,15 +300,11 @@ patchInstr(int32_t *addr)
 	} else
 		NOT_IMPLEMENTED();
 
-	// printf("call_target: %p\n", (void *)call_target);
-
 	offset = ((int32_t)call_target - (int32_t)addr - 8) / 4;
-	// printf("offset: %x, %d\n", offset, offset);
 
 	*addr = 0;
 	*addr |= offset & 0x00ffffff;
 	*addr |= ARM_B << 24;
-	// printf("instr: %x\n", *addr);
 
 	__clear_cache(addr, addr + 4);
 }
